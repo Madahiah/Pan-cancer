@@ -1,0 +1,970 @@
+library(TCGAbiolinks)
+library(SummarizedExperiment)
+library(dplyr)
+library(DT)
+library(MASS)
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+BiocManager::install("TCGAutils")
+
+library(TCGAutils)
+library(curatedTCGAData)
+library(MultiAssayExperiment)
+library(RTCGAToolbox)
+library(BiocFileCache)
+library(rtracklayer)
+library(R.utils)
+
+#  Query platform Illumina
+##"TCGA-READ" ,"TCGA-CESC" ,"TCGA-CHOL" ,"TCGA-COAD","TCGA-ESCA","TCGA-GBM",
+##"TCGA-OV","TCGA-PCPG","TCGA-LGG","TCGA-BLCA","TCGA-THCA","TCGA-KIRP",
+##"TCGA-BRCA","TCGA-LIHC","TCGA-KIRC","TCGA-UVM","TCGA-KICH","TCGA-DLBC","TCGA-MESO","TCGA-TGCT","TCGA-UCEC"
+
+outdir4 = "Cancers"
+
+outdir4
+
+
+get_CANData <- function(project  = CANCER ,outdir4   = "TCGA-cancer")
+  
+  queryCANCER1 <- GDCquery(project = c("TCGA-OV","TCGA-PCPG","TCGA-LGG","TCGA-BLCA","TCGA-THCA") ,
+                           data.type = "Gene Expression Quantification"  ,
+                           data.category = "Transcriptome Profiling" ,legacy = FALSE);
+
+queryCANCER2 <- GDCquery(project = c("TCGA-PAAD","TCGA-STAD","TCGA-SKCM","TCGA-LUAD","TCGA-LUSC","TCGA-HNSC","TCGA-PRAD","TCGA-UCS","TCGA-THYM") ,
+                         data.type = "Gene Expression Quantification"  ,
+                         data.category = "Transcriptome Profiling" ,
+                         legacy = FALSE);
+
+
+
+queryCANCER3 <- GDCquery(project = c("TCGA-KIRP","TCGA-BRCA","TCGA-LIHC","TCGA-KIRC","TCGA-UVM","TCGA-KICH","TCGA-DLBC","TCGA-MESO","TCGA-TGCT","TCGA-UCEC") ,
+                         data.type = "Gene Expression Quantification"  ,
+                         data.category = "Transcriptome Profiling" ,
+                         legacy = FALSE);
+
+
+queryCANCER4 <- GDCquery(project = c("TCGA-CESC", "TCGA-CHOL", "TCGA-COAD", "TCGA-GBM", "TCGA-ESCA", "TCGA-READ") ,
+                         data.type = "Gene Expression Quantification"  ,
+                         data.category = "Transcriptome Profiling" ,
+                         legacy = FALSE);
+
+
+GDCquery
+getGDCprojects()
+
+queryCANCER1$project
+queryCANCER2$project 
+queryCANCER3$project 
+queryCANCER4$project
+# Download a list of barcodes with platform Illumina
+
+GDCdownload(query = queryCANCER1,
+            method = "api",
+            directory = outdir4)
+
+GDCdownload(query = queryCANCER2,
+            method = "api",
+            directory = outdir4)
+
+GDCdownload(query = queryCANCER3,
+            method = "api",
+            directory = outdir4)
+
+### Prepare expression matrix with geneID in the rows and samples (barcode) in the columns
+
+expdatCancer1 <- GDCprepare(query = c(queryCANCER1),
+                            directory = outdir4)
+
+expdatCancer2 <- GDCprepare(query = c(queryCANCER2),
+                            directory = outdir4)
+
+expdatCancer3 <- GDCprepare(query = c(queryCANCER3),
+                            directory = outdir4)
+
+expdatCancer4 <- GDCprepare(query = c(queryCANCER4),
+                            directory = outdir4)
+head(assay(expdatCancer4))
+expdatCancer1$tumor_grade
+
+expdatCancer1$last_known_disease_status
+#### expression matrix ###################################################
+
+CMatrix1 <- assay(expdatCancer1, withDimnames = TRUE)
+CMatrix1[1:2,1:2]
+head(CMatrix1,1:2)
+dim(CMatrix1)
+write.csv(CMatrix1,file ="CMatrix1.csv", sep = "\t", row.names = TRUE, col.names = TRUE)
+
+CMatrix2 <- assay(expdatCancer2, withDimnames = TRUE)
+CMatrix2[,1:20]
+write.csv(CMatrix2,file ="CMatrix2.csv", sep = "\t", row.names = TRUE, col.names = TRUE)
+dim(CMatrix1)
+CMatrix3 <- assay(expdatCancer3, withDimnames = TRUE)
+CMatrix3[1:20,1:20]
+write.csv(CMatrix3,file ="CMatrix3.csv", sep = "\t", row.names = TRUE, col.names = TRUE)
+
+CMatrix4 <- assay(expdatCancer4, withDimnames = TRUE)
+CMatrix4[,1:20]
+write.csv(CMatrix4,file ="CMatrix4.csv", sep = "\t", row.names = TRUE, col.names = TRUE)
+
+
+####-------- Import & Join CSV Files ####------------------------------------------------------------------------
+
+data.join <- list.files("C:/Users/Madahiah Bint Masood/National University of Sciences & Technology/DAL Research - Madahiah/PANCANCER/data_files",
+                        pattern = "*.csv", full.names = TRUE) %>% 
+  lapply(read_csv) %>%            # Store all files in list                  
+  reduce(full_join, by = "gene")  # Full-join data sets into one data set
+data.join[1:3,1:3]
+dim(data.join)
+##### write joined csv file ##########################################################################################################
+
+write.csv(data.join,file ="Joined_data.csv", sep = "\t", row.names = TRUE, col.names = TRUE)
+
+#### For gene expression if you need to see a boxplot correlation and AAIC plot to define outliers you can run #######
+
+Cancer.RNAseq_CorOutliers <- TCGAanalyze_Preprocessing(expdatCancer1)
+Cancer.RNAseq_CorOutliers1 <- TCGAanalyze_Preprocessing(expdatCancer2)
+Cancer.RNAseq_CorOutliers2 <- TCGAanalyze_Preprocessing(expdatCancer3)
+Cancer.RNAseq_CorOutliers3 <- TCGAanalyze_Preprocessing(expdatCancer4)
+
+Cancer.RNAseq_CorOutliers1.1 <- TCGAanalyze_Preprocessing(expdatCancer1, cor.cut = 0.5)
+
+
+############# create the sample information #########################################################################
+
+cdata <- data.frame(sample = c(expdatCancer1$barcode,expdatCancer2$barcode,expdatCancer3$barcode,expdatCancer4$barcode), condition = c(expdatCancer1$shortLetterCode,expdatCancer2$shortLetterCode,expdatCancer3$shortLetterCode,expdatCancer4$shortLetterCode), definition = c(expdatCancer1$sample_type,expdatCancer2$sample_type,expdatCancer3$sample_type,expdatCancer4$sample_type), row.names = "sample")
+
+colnames(cdata)
+cdata$condition <- as.factor(cdata$condition)
+write.csv(cdata,file ="cdata.csv", sep = "\t", row.names = TRUE, col.names = TRUE)
+cdata <- read_csv("cdata.csv")
+class(cdata)
+cdata <- as.data.frame(cdata)
+
+############ get count dataset #######################################################################################
+
+library(readr)
+
+mycounts <- read_csv("Joined_data.csv")
+mycounts[1:2]
+
+#### columns in the count matrix in the same order as that in rows of coldata(sample information)
+#### making sure that the rownames in cdata matches to column names in mycounts ################
+
+names(mycounts)[-1] == cdata$sample
+all(names(mycounts)[-1]==cdata$sample)
+
+class(mycounts)
+class(cdata)
+mycounts <- as.data.frame(mycounts)
+names(mycounts)[-1]
+head(cdata)
+
+#define the design formula
+
+designFormula <- "~ condition"
+
+library(DESeq2)
+library(stats)
+
+#create a DESeq dataset object from the count matrix and the colData 
+
+memory.limit(size = 999999999999999999999)
+dds <- DESeqDataSetFromMatrix(countData = mycounts, 
+                              colData = cdata, 
+                              design = as.formula(designFormula),tidy = TRUE)
+
+#print dds object to see the contents
+print(dds)
+
+### Pre-filter the genes which have low counts (< 10 reads)across all the samples
+
+dds <- dds[rowSums(counts(dds)) >= 10,]
+
+####### DESeq pipeline ####################################################
+
+sizeFactors(dds)
+dispersions(dds)
+results(dds)
+
+# set control condition as reference
+dds$condition <- relevel(dds$condition, ref = "NT")
+
+###### Perform differential gene expression analysis(running pipeline)########################
+memory.limit(size = 999999999999999999999)
+dds <- DESeq(dds)
+
+###### Inspecting the results table ##########################################################
+res <- results(dds)### raw results
+res 
+
+resfilter <- results(dds, independentFiltering = TRUE, lfcThreshold = 1.5, alpha = 0.05)### filtered results
+res
+summary(res)
+summary(resfilter)
+res <- res[order(res$padj),]
+
+###### Plot the dispersions ##################################################################
+
+library(RColorBrewer)
+library(gplots)
+
+plotDispEsts(dds)
+
+########## P-value distribution #############################################################
+
+## sort results by increasing p-value two ways
+
+res_pvalue <- res[order(res$pvalue),]
+
+library(ggplot2)
+
+ggplot(data = as.data.frame(res_pvalue), aes(x = pvalue)) + 
+  geom_histogram(bins = 100)
+
+sum( res$padj < 0.05, na.rm=TRUE )
+
+hist(resfilter$padj, breaks=20, col="lightblue" )
+hist(resfilter$pvalue, breaks=20, col="lightblue" )
+
+##### 1: Transformation  #########################################
+
+vsdata <- vst(dds, blind=FALSE)
+
+##### pheatmap is a specialised package to make heatmaps
+
+res_top <- data.frame(res)
+top_genes1 <- dplyr::slice(res_top, 1:10) %>% pull(ensembl)
+BiocManager::install("pheatmap")
+top_genes1
+library(pheatmap)
+pheatmap(assay(vsdata)[top_genes,])
+
+sampleinfo <- as.data.frame(colData(dds, name))
+sampleinfo <- data.frame(sample = c(sampleinfo$sample), condition = c(sampleinfo$condition), row.names = TRUE )
+
+pheatmap(assay(vsdata)[top_genes,],
+         annotation_col = sampleinfo,
+         scale="row")
+cdata
+
+
+########## PCA plot #########################################################################
+
+plotPCA(vsdata, intgroup = "condition", ntop = 500, returnData = FALSE)
+?plotPCA
+
+
+###########----------see all comparisons-----------------------------------------------------------------------------------------------------
+########### Primary Tumor vs Normal #################################################################################
+resTP_vs_NT  <- results(dds,name = c("condition_TP_vs_NT" ))
+resfTP_vs_NT  <- results(dds,independentFiltering = TRUE, lfcThreshold = 1.5, alpha = 0.05, name = c("condition_TP_vs_NT" ))
+
+################## MA plots ####################################
+
+plotMA(resTP_vs_NT, ylim = c(-5,5))
+plotMA(resfTP_vs_NT, ylim = c(-5,5))
+summary(resTP_vs_NT)
+summary(resfTP_vs_NT)
+
+##### sort results by increasing padj
+resTP_vs_NT<- resTP_vs_NT[order(resTP_vs_NT$padj),]
+resTAP_vs_NT<- resTAP_vs_NT[order(resTAP_vs_NT$padj),]
+resTM_vs_NT<- resTM_vs_NT[order(resTM_vs_NT$padj),]
+resTAM_vs_NT<- resTAM_vs_NT[order(resTAM_vs_NT$padj),]
+resTR_vs_NT<- resTR_vs_NT[order(resTR_vs_NT$padj),]
+
+####################### annotate ###############################################
+########### split up the rownames of the results object ########################
+
+resTP_vs_NT$ensembl <- sapply( strsplit( rownames(resTP_vs_NT), split="\\+" ), "[", 1 )
+
+library(biomaRt)
+listEnsembl()
+ensembl <- useEnsembl(biomart = "genes")
+datasets <- listDatasets(ensembl)
+ensembl.con <- useMart("ensembl", dataset = "hsapiens_gene_ensembl" )
+attr <- listAttributes(ensembl.con)
+filters <- listFilters(ensembl.con)
+resTP_vs_NT <- as.data.frame(resTP_vs_NT)
+resTP_vs_NT
+write.csv(resTP_vs_NT, file = "resTP_vs_NT.csv")
+resTP_vs_NT.id <- read.delim("resTP_vs_NT.csv", header = FALSE) 
+genemapTP_vs_NT <-  getBM(attributes = c( "ensembl_gene_id_version","external_gene_name"),filters = "ensembl_gene_id_version", values = resTP_vs_NT.id$V1, mart = ensembl.con)
+idxTP_vs_NT <- match( resTP_vs_NT$ensembl, genemapTP_vs_NT$ensembl_gene_id_version)
+resTP_vs_NT$gene_name <- genemapTP_vs_NT$external_gene_name[ idxTP_vs_NT ]
+resTP_vs_NT
+write.csv(resTP_vs_NT, file = "primary.csv")
+
+########### Additional Primary Tumor vs Normal #################################################################################
+
+resTAP_vs_NT  <- results(dds,name = c("condition_TAP_vs_NT" ))
+resfTAP_vs_NT  <- results(dds,independentFiltering = TRUE, lfcThreshold = 1.5, alpha = 0.05, name = c("condition_TAP_vs_NT" ))
+plotMA(resTAP_vs_NT, ylim = c(-5,5))
+plotMA(resfTAP_vs_NT, ylim = c(-5,5))
+summary(resTAP_vs_NT)
+summary(resfTAP_vs_NT)
+
+####################### annotate ###############################################
+########### split up the rownames of the results object ########################
+resTAP_vs_NT$ensembl <- sapply( strsplit( rownames(resTAP_vs_NT), split="\\+" ), "[", 1 )
+resTAP_vs_NT <- as.data.frame(resTAP_vs_NT)
+
+write.csv(resTAP_vs_NT, file = "resTAP_vs_NT.csv")
+resTAP_vs_NT.id <- read.delim("resTAP_vs_NT.csv", header = FALSE) 
+genemapTAP_vs_NT <-  getBM(attributes = c( "ensembl_gene_id_version","external_gene_name"),filters = "ensembl_gene_id_version", values = resTAP_vs_NT.id$V1, mart = ensembl.con)
+idxTAP_vs_NT <- match( resTAP_vs_NT$ensembl, genemapTAP_vs_NT$ensembl_gene_id_version)
+resTAP_vs_NT$gene_name <- genemapTAP_vs_NT$external_gene_name[ idxTAP_vs_NT ]
+resTAP_vs_NT
+write.csv(resTAP_vs_NT, file = "Additionalprimary.csv")
+
+########### Additional Metastatic Tumor vs Normal #################################################################################
+
+resTAM_vs_NT  <- results(dds,name = c("condition_TAM_vs_NT" ))
+resfTAM_vs_NT  <- results(dds,independentFiltering = TRUE, lfcThreshold = 1.5, alpha = 0.05, name = c("condition_TAM_vs_NT" ))
+plotMA(resTAM_vs_NT, ylim = c(-5,5))
+plotMA(resfTAM_vs_NT, ylim = c(-5,5))
+summary(resTAM_vs_NT)
+summary(resfTAM_vs_NT)
+####################### annotate ###############################################
+########### split up the rownames of the results object ########################
+resTAM_vs_NT$ensembl <- sapply( strsplit( rownames(resTAM_vs_NT), split="\\+" ), "[", 1 )
+
+resTAM_vs_NT <- as.data.frame(resTAM_vs_NT)
+
+write.csv(resTAM_vs_NT, file = "resTAM_vs_NT.csv")
+resTAM_vs_NT.id <- read.delim("resTAM_vs_NT.csv", header = FALSE) 
+genemapTAM_vs_NT <-  getBM(attributes = c( "ensembl_gene_id_version","external_gene_name"),filters = "ensembl_gene_id_version", values = resTAM_vs_NT.id$V1, mart = ensembl.con)
+idxTAM_vs_NT <- match( resTAM_vs_NT$ensembl, genemapTAM_vs_NT$ensembl_gene_id_version)
+resTAM_vs_NT$gene_name <- genemapTAM_vs_NT$external_gene_name[ idxTAM_vs_NT ]
+resTAM_vs_NT
+write.csv(resTAM_vs_NT, file = "AdditionalMetastatic.csv")
+
+########### Metastatic Tumor vs Normal #################################################################################
+
+resTM_vs_NT  <- results(dds,name = c("condition_TM_vs_NT" ))
+resfTM_vs_NT  <- results(dds,independentFiltering = TRUE, lfcThreshold = 1.5, alpha = 0.05, name = c("condition_TM_vs_NT" ))
+plotMA(resTM_vs_NT, ylim = c(-5,5))
+plotMA(resfTM_vs_NT, ylim = c(-5,5))
+summary(resTM_vs_NT)
+summary(resfTM_vs_NT)
+
+####################### annotate ###############################################
+########### split up the rownames of the results object ########################
+resTM_vs_NT$ensembl <- sapply( strsplit( rownames(resTM_vs_NT), split="\\+" ), "[", 1 )
+resTM_vs_NT <- as.data.frame(resTM_vs_NT)
+
+write.csv(resTM_vs_NT, file = "resTM_vs_NT.csv")
+resTM_vs_NT.id <- read.delim("resTM_vs_NT.csv", header = FALSE) 
+genemapTM_vs_NT <-  getBM(attributes = c( "ensembl_gene_id_version","external_gene_name"),filters = "ensembl_gene_id_version", values = resTM_vs_NT.id$V1, mart = ensembl.con)
+idxTM_vs_NT <- match( resTM_vs_NT$ensembl, genemapTM_vs_NT$ensembl_gene_id_version)
+resTM_vs_NT$gene_name <- genemapTM_vs_NT$external_gene_name[ idxTM_vs_NT ]
+resTM_vs_NT
+
+### write csv file 
+write.csv(resTM_vs_NT, file = "Metastatic.csv",sep = "\t", row.names = TRUE, col.names = TRUE)
+
+########### Recurrent Tumor vs Normal #################################################################################
+
+resTR_vs_NT  <- results(dds,name = c("condition_TR_vs_NT" ))
+resfTR_vs_NT  <- results(dds,independentFiltering = TRUE, lfcThreshold = 1.5, alpha = 0.05, name = c("condition_TR_vs_NT" ))
+plotMA(resTR_vs_NT, ylim = c(-5,5))
+plotMA(resfTR_vs_NT, ylim = c(-5,5))
+
+summary(resTR_vs_NT)
+summary(resfTR_vs_NT)
+
+####################### annotate ###############################################
+########### split up the rownames of the results object ########################
+
+resTR_vs_NT$ensembl <- sapply( strsplit( rownames(resTR_vs_NT), split="\\+" ), "[", 1 )
+resTR_vs_NT <- as.data.frame(resTR_vs_NT)
+
+write.csv(resTR_vs_NT, file = "resTR_vs_NT.csv")
+resTR_vs_NT.id <- read.delim("resTR_vs_NT.csv", header = FALSE) 
+genemapTR_vs_NT <-  getBM(attributes = c( "ensembl_gene_id_version","external_gene_name"),filters = "ensembl_gene_id_version", values = resTR_vs_NT.id$V1, mart = ensembl.con)
+idxTR_vs_NT <- match( resTR_vs_NT$ensembl, genemapTR_vs_NT$ensembl_gene_id_version)
+resTR_vs_NT$gene_name <- genemapTR_vs_NT$external_gene_name[ idxTR_vs_NT ]
+resTR_vs_NT
+
+# Set a boolean column for significance
+resTR_vs_NT$significant <- ifelse(resTR_vs_NT$padj < 0.05, "Significant", NA)
+### write csv file 
+write.csv(resTR_vs_NT, file = "Recurrent.csv",sep = "\t", row.names = TRUE, col.names = TRUE)
+
+
+######## Volcano plot ##########################################
+
+library(ggplot2)
+resTP_vs_NT <- as.data.frame(resTP_vs_NT)
+resTP_vs_NT %>% 
+  mutate(Significant = padj < 0.05 & abs(log2FoldChange) > 1.5 ) %>% 
+  ggplot(aes(x = log2FoldChange, y = -log10(padj), col=Significant)) + geom_point()
+
+
+library(ggplot2)
+resTAP_vs_NT <- as.data.frame(resTAP_vs_NT)
+resTAP_vs_NT %>% 
+  mutate(Significant = padj < 0.05 & abs(log2FoldChange) > 1.5) %>% 
+  ggplot(aes(x = log2FoldChange, y = -log10(padj), col=Significant)) + geom_point()
+
+library(ggplot2)
+resTAM_vs_NT <- as.data.frame(resTAM_vs_NT)
+resTAM_vs_NT %>% 
+  mutate(Significant = padj < 0.05 & abs(log2FoldChange) > 1.5) %>% 
+  ggplot(aes(x = log2FoldChange, y = -log10(padj), col=Significant)) + geom_point()
+
+library(ggplot2)
+resTM_vs_NT <- as.data.frame(resTM_vs_NT)
+resTM_vs_NT %>% 
+  mutate(Significant = padj < 0.05 & abs(log2FoldChange) > 1.5) %>% 
+  ggplot(aes(x = log2FoldChange, y = -log10(padj), col=Significant)) + geom_point()
+
+library(ggplot2)
+resTR_vs_NT <- as.data.frame(resTR_vs_NT)
+resTR_vs_NT %>% 
+  mutate(Significant = padj < 0.05 & abs(log2FoldChange) > 1.5) %>% 
+  ggplot(aes(x = log2FoldChange, y = -log10(padj), col=Significant)) + geom_point()
+
+
+##################### heatmap #################################################################################################################
+
+top_genesTM_vs_NT <- dplyr::slice(resTM_vs_NT, 1:10) %>% pull(ensembl) 
+pheatmap(assay(vsdata)[top_genesTM_vs_NT,])
+
+top_genesTAM_vs_NT <- dplyr::slice(resTAM_vs_NT, 1:10) %>% pull(ensembl) 
+pheatmap(assay(vsdata)[top_genesTAM_vs_NT,])
+
+top_genesTP_vs_NT <- dplyr::slice(resTP_vs_NT, 1:10) %>% pull(ensembl) 
+pheatmap(assay(vsdata)[top_genesTP_vs_NT,])
+
+top_genesTAP_vs_NT <- dplyr::slice(resTAP_vs_NT, 1:10) %>% pull(ensembl) 
+pheatmap(assay(vsdata)[top_genesTAP_vs_NT,])
+
+top_genesTR_vs_NT <- dplyr::slice(resTR_vs_NT, 1:10) %>% pull(ensembl) 
+pheatmap(assay(vsdata)[top_genesTR_vs_NT,])
+
+
+
+###############################################################################################################################################
+######## Export differential gene expression analysis table to CSV file,
+
+write.csv(as.data.frame(res[order(res$padj),] ), file="Recurrent.csv")
+write.csv(as.data.frame(res1[order(res1$padj),] ), file="Metastatic.csv")
+write.csv(as.data.frame(res2[order(res2$padj),] ), file="Primary.csv")
+
+####################### annotate ###############################################
+########### split up the rownames of the results object ########################
+
+res$ensembl <- sapply( strsplit( rownames(res), split="\\+" ), "[", 1 )
+
+library(biomaRt)
+listEnsembl()
+ensembl <- useEnsembl(biomart = "genes")
+datasets <- listDatasets(ensembl)
+ensembl.con <- useMart("ensembl", dataset = "hsapiens_gene_ensembl" )
+attr <- listAttributes(ensembl.con)
+filters <- listFilters(ensembl.con)
+res_file <- as.data.frame(res)
+res_file
+write.csv(res_file, file = "final_results.csv")
+res.id <- read.delim("final_results.csv", header = FALSE) 
+genemap1 <-  getBM(attributes = c( "ensembl_gene_id_version","external_gene_name"),filters = "ensembl_gene_id_version", values = res.id$V1, mart = ensembl.con)
+idx <- match( res$ensembl, genemap1$ensembl_gene_id_version)
+res$gene_name <- genemap1$external_gene_name[ idx ]
+res
+write.csv(res, file = "Annotated.csv")
+res <- res[order(res$padj),]
+write.csv(res, file = "Anno_sorted.csv")  
+
+####### e.g......................................................
+
+ensembl.id <- as.data.frame(res$ensembl)
+write.csv(ensembl.id, file = "ids.csv")
+write.csv(ensembl.id, file = "ids.txt")
+ensembl.id <- read.delim("ids.csv", header = FALSE)
+library(biomaRt)
+listEnsembl()
+ensembl <- useEnsembl(biomart = "genes")
+datasets <- listDatasets(ensembl)
+ensembl.con <- useMart("ensembl", dataset = "hsapiens_gene_ensembl" )
+attr <- listAttributes(ensembl.con)
+filters <- listFilters(ensembl.con)
+genemap <-  getBM(attributes = c( "ensembl_gene_id_version","external_gene_name"),filters = "ensembl_gene_id_version", values = ensembl.id$V1, mart = ensembl.con)
+view(datasets)
+
+################## Threshold-based Gene Set Testing ##############################################################################
+## The pull function from dplyr is used to extract a particular column
+library(org.Hs.eg.db)
+
+pathway_genes <- AnnotationDbi::select(org.Hs.eg.db,
+                                       keys = "GO:0014065",
+                                       keytype = "GO",
+                                       columns = "ENSEMBL") %>% pull(ENSEMBL)
+## strip Ensembl version numbers (if any)
+library(stringr)
+library(magrittr)
+rownames(res) %<>% str_remove("\\.[0-9]+$")
+res$ENSEMBL %<>% str_remove("\\.[0-9]+$")
+
+columns(org.Hs.eg.db)
+go_table <- mutate(res, 
+                   inPathway = ENSEMBL %in% pathway_genes,
+                   isDE = padj < 0.05 & abs(log2FoldChange) > 1.5)
+
+View(go_table)
+
+res <- as.data.frame(res)
+res$ENSEMBL <- sapply( strsplit( rownames(res), split="\\+" ), "[", 1 )
+remove(geneList )
+library(biomaRt)
+listEnsembl()
+ensembl <- useEnsembl(biomart = "genes")
+datasets <- listDatasets(ensembl)
+ensembl.con <- useMart("ensembl", dataset = "hsapiens_gene_ensembl" )
+attr <- listAttributes(ensembl.con)
+filters <- listFilters(ensembl.con)
+res <- as.data.frame(res)
+res
+write.csv(res, file = "res.csv")
+res.id <- read.delim("res.csv", header = FALSE) 
+genemap_res <-  getBM(attributes = c( "ensembl_gene_id_version","external_gene_name"),filters = "ensembl_gene_id_version", values = res.id$V1, mart = ensembl.con)
+idx_res <- match( res$ENSEMBL, genemap_res$ensembl_gene_id_version)
+idx_res 
+res$gene_name <- genemap_res$external_gene_name[ idx_res ]
+res
+
+######################### GSEA ########################################################################################################
+
+
+ranked_genes <- res %>% 
+  arrange(desc(stat)) %>% 
+  filter(!is.na(stat))
+
+geneList <- pull(ranked_genes, stat)
+names(geneList) <- pull(ranked_genes,ENSEMBL)
+
+
+## strip Ensembl version numbers (if any)
+library(stringr)
+library(magrittr)
+names(geneList) %<>% str_remove("\\.[0-9]+$")
+library(clusterProfiler)
+gse_GO <- gseGO(geneList = geneList,
+                OrgDb = org.Hs.eg.db,
+                ont = "ALL",
+                pAdjustMethod = "BH",
+                eps = 1e-20,
+                pvalueCutoff = 0.05,
+                verbose      = T,
+                seed = FALSE,
+                keyType = "ENSEMBL")
+
+gse_GO1 <- gseGO(geneList = geneList,
+                 OrgDb = org.Hs.eg.db,
+                 ont = "ALL",
+                 pAdjustMethod = "BH",
+                 eps = 1e-300,
+                 pvalueCutoff = 0.05,
+                 verbose      = T,
+                 seed = FALSE,
+                 keyType = "ENSEMBL")
+
+
+gse_GO1@result$ID
+enrichplot::gseaplot2(gse_GO1,geneSetID = "GO:0014065")
+
+################## Dot plot #######################################################################
+
+dotplot(gse_GO1,showCategory=20)
+
+################## emapplot ####################################################################
+library(enrichplot)
+gse_GO2 <- enrichplot::pairwise_termsim(gse_GO1)
+emapplot(gse_GO2 )
+BiocManager::install("ggnewscale")
+library(ggnewscale)
+View(gse_GO)
+gse_GO %>% as.data.frame
+gse_GO@result$NES
+################ Ridge plot ####################################################################
+BiocManager::install("ggridges")
+BiocManager::install("ggupset")
+library(ggupset)
+library(ggridges)
+ridgeplot(gse_GO1)
+################## upset #####################################################################
+
+enrichplot::upsetplot(gse_GO1)
+################## gsea plot #################################################################
+gseaplot(gse_GO1,geneSetID = "GO:0014065")##### Pi3k pathway #################################
+gseaplot(gse_GO1,geneSetID = "GO:0031929")
+library(fgsea)
+gseaplot2(gse_GO1,geneSetID = "GO:0014065")
+gseaplot(gse_GO1,geneSetID = "GO:0031929")
+gseaplot(gse_GO1,geneSetID = "GO:0043491")
+
+###################
+
+goplot(gse_GO)
+barplot(gse_GO1) 
+BiocManager::install("europepmc")
+terms <- gse_GO1$Description[1:50]
+p <- pmcplot(terms, 2010:2020)
+p2 <- pmcplot(terms, 2010:2020, proportion=FALSE)
+plot_grid(p, p2, ncol=2)
+
+######################### WGCNA #########################################################################################################
+
+allowWGCNAThreads()          # allow multi-threading (optional)
+
+install.packages(c("tidyverse", "magrittr"))
+
+##### # tidyverse will pull in ggplot2, readr, other useful libraries
+
+library(tidyverse) 
+
+#### # provides the %>% operator
+
+library(magrittr)     
+
+install.packages("impute")
+BiocManager::install("WGCNA")
+library(WGCNA)
+# 1. Fetch Data ------------------------------------------------
+data <- read_csv("Joined_data.csv")
+data[1:2]
+
+# get metadata
+phenoData <-cdata
+######## prepare data
+data[1:10,1:10]
+names(data)
+#### QC - outlier detection ------------------------------------------------
+# detect outlier genes
+# Note that each row corresponds to a gene and column to a sample or auxiliary information.
+# We now remove the auxiliary data and transpose the expression data for further analysis.
+
+data = as.data.frame(t(data[, -1]))
+names(data) = data$genes                      #Use the first column name after '$'
+rownames(data) = names(data)[-1]
+gsg <- goodSamplesGenes(data, verbose = 3)
+summary(gsg)
+gsg$allOK
+
+table(gsg$goodGenes)
+table(gsg$goodSamples)
+# remove genes that are detectd as outliers
+data <- data[gsg$goodGenes == TRUE,]
+data1 <- as.data.frame(data)
+data1 <- t(data1)
+class(data1)
+data1 <- as.data.frame(data1)
+data2 <- data1[gsg$goodGenes == TRUE,]
+data3 <- data1[gsg$goodGenes == TRUE,]
+
+gc()
+remove(res2)
+data1 = as.data.frame(data1[, -1])
+dim(data2)
+data2[1:10,1:10]
+class(data2)
+#######
+# detect outlier samples - hierarchical clustering - method 1
+library(dplyr)
+htree <- hclust(dist(t(data)), method = "average")
+plot(htree)
+
+names(data2) = phenoData$sample
+
+names(data2) == phenoData$sample
+all(names(data2)==phenoData$sample)
+
+class(data2)
+class(phenoData)
+
+names(data2)[-1]
+rownames(phenoData)
+all(rownames(phenoData$sample) %in% colnames(data2))
+all(rownames(phenoData$sample) == colnames(data2))
+
+remove()
+gc()
+data1 = as.data.frame(data1[, -1])
+dim(data2)
+dim(phenoData)
+#### create dds
+library(DESeq2)
+data2[1:10,1:10]
+class(phenoData)
+names(phenoData)
+colnames(data3)
+as.matrix(countData)
+
+dds1 <- DESeqDataSetFromMatrix(countData = data2,
+                               colData = phenoData,
+                               design = ~ 1)# not spcifying model
+
+## remove all genes with counts < 15 in more than 75% of samples (31*0.75=23.25)
+## suggested by WGCNA on RNAseq FAQ
+
+dds75 <- dds1[rowSums(counts(dds1) >= 15) >= 24,]
+nrow(dds75) # 43026 genes
+
+# perform variance stabilization
+dds_norm <- vst(dds75)
+
+# get normalized counts
+norm.counts <- assay(dds_norm) %>% 
+  t()
+###### 4. Network Construction  ---------------------------------------------------
+# Choose a set of soft-thresholding powers
+power <- c(c(1:10), seq(from = 12, to = 50, by = 2))
+
+# Call the network topology analysis function
+sft <- pickSoftThreshold(norm.counts,blockSize = 30,
+                         powerVector = power,
+                         networkType = "signed",
+                         verbose = 5)
+
+
+sft.data <- sft$fitIndices
+
+# visualization to pick power
+BiocManager::install("gridExtra")
+library(gridExtra)
+library(ggplot2)
+
+a1 <- ggplot(sft.data, aes(Power, SFT.R.sq, label = Power)) +
+  geom_point() +
+  geom_text(nudge_y = 0.1) +
+  geom_hline(yintercept = 0.8, color = 'red') +
+  labs(x = 'Power', y = 'Scale free topology model fit, signed R^2') +
+  theme_classic()
+
+a2 <- ggplot(sft.data, aes(Power, mean.k., label = Power)) +
+  geom_point() +
+  geom_text(nudge_y = 0.1) +
+  labs(x = 'Power', y = 'Mean Connectivity') +
+  theme_classic()
+
+grid.arrange(a1, a2, nrow = 2)
+
+# convert matrix to numeric
+norm.counts[] <- sapply(norm.counts, as.numeric)
+
+soft_power <- 12
+temp_cor <- cor
+cor <- WGCNA::cor
+
+# memory estimate w.r.t blocksize
+
+##bwnet <- blockwiseModules(norm.counts,
+                          maxBlockSize = 4000,
+                          TOMType = "signed",
+                          power = soft_power,
+                          mergeCutHeight = 0.25,
+                          numericLabels = FALSE,
+                          randomSeed = 1234,
+                          verbose = 3)
+
+##cor <- temp_cor
+
+bwnet <- blockwiseModules(norm.counts,
+                          power = soft_power,# == Adjacency Function ==
+                          TOMType = "signed",
+                          minModuleSize = 30,
+                          maxBlockSize = 6000,
+                          deepSplit = 2,# == Tree and Block Options ==
+                          pamRespectsDendro = F,
+                          reassignThreshold = 0,# == Module Adjustments ==
+                          mergeCutHeight = 0.25,
+                          saveTOMs = T,# == TOM == Archive the run results in TOM file (saves time)
+                          saveTOMFileBase = "ER",
+                          numericLabels = T,# == Output Options
+                          randomSeed = 1234,
+                          verbose = 3)
+
+cor <- temp_cor
+#######################################################################################################################################
+
+BiocManager::install("tidyr")
+library(tidyr)
+library(ggplot2)
+library(dplyr)
+memory.limit(size = 9999999999999999999999999999999)
+memory.size()
+memory.limit()
+vsdata <- vst(dds, blind=FALSE)
+library(DESeq2)
+vsd <- varianceStabilizingTransformation(dds)
+head(vsd)
+rm(result)
+gc()
+Sys.setenv('R_MAX_VSIZE'=9999999999999999999999999999)
+wpn_vsd <- getVarianceStabilizedData(dds)
+rv_wpn <- rowVars(wpn_vsd)
+summary(rv_wpn)
+q75_wpn <- quantile( rowVars(wpn_vsd), .75)  # <= original
+q95_wpn <- quantile( rowVars(wpn_vsd), .95)  # <= changed to 95 quantile to reduce dataset
+expr_normalized <- wpn_vsd[ rv_wpn > q95_wpn, ]
+expr_normalized[1:5,1:10]
+dim(expr_normalized)
+expr_normalized_df <- data.frame(expr_normalized) %>%
+  mutate(
+    Gene_id = row.names(expr_normalized)
+  ) %>%
+  pivot_longer(-Gene_id)
+
+expr_normalized_df %>% ggplot(., aes(x = name, y = value)) +
+  geom_violin() +
+  geom_point() +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text( angle = 90)
+  ) +
+  ylim(0, NA) +
+  labs(
+    title = "Normalized and 95 quantile Expression",
+    x = "treatment",
+    y = "normalized expression"
+  )
+
+############### Transpose the data and prepare the dataset for WGCNA. ####################################
+input_mat = t(expr_normalized)
+input_mat[1:5,1:10]           # Look at first 5 rows and 10 columns
+
+# Choose a set of soft-thresholding powers
+powers = c(c(1:10), seq(from = 12, to = 20, by = 2))
+
+# Call the network topology analysis function
+sft = pickSoftThreshold(
+  input_mat,             # <= Input data
+  #blockSize = 30,
+  powerVector = powers,
+  verbose = 5
+)
+
+par(mfrow = c(1,2));
+cex1 = 0.9;
+
+plot(sft$fitIndices[, 1],
+     -sign(sft$fitIndices[, 3]) * sft$fitIndices[, 2],
+     xlab = "Soft Threshold (power)",
+     ylab = "Scale Free Topology Model Fit, signed R^2",
+     main = paste("Scale independence")
+)
+text(sft$fitIndices[, 1],
+     -sign(sft$fitIndices[, 3]) * sft$fitIndices[, 2],
+     labels = powers, cex = cex1, col = "red"
+)
+abline(h = 0.90, col = "red")
+plot(sft$fitIndices[, 1],
+     sft$fitIndices[, 5],
+     xlab = "Soft Threshold (power)",
+     ylab = "Mean Connectivity",
+     type = "n",
+     main = paste("Mean connectivity")
+)
+text(sft$fitIndices[, 1],
+     sft$fitIndices[, 5],
+     labels = powers,
+     cex = cex1, col = "red")
+
+picked_power = 6
+temp_cor <- cor       
+cor <- WGCNA::cor         # Force it to use WGCNA cor function (fix a namespace conflict issue)
+netwk <- blockwiseModules(input_mat,                # <= input here
+                          
+                          # == Adjacency Function ==
+                          power = picked_power,                # <= power here
+                          networkType = "signed",
+                          
+                          # == Tree and Block Options ==
+                          deepSplit = 2,
+                          pamRespectsDendro = F,
+                          # detectCutHeight = 0.75,
+                          minModuleSize = 30,
+                          maxBlockSize = 4000,
+                          
+                          # == Module Adjustments ==
+                          reassignThreshold = 0,
+                          mergeCutHeight = 0.25,
+                          
+                          # == TOM == Archive the run results in TOM file (saves time)
+                          saveTOMs = T,
+                          saveTOMFileBase = "ER",
+                          
+                          # == Output Options
+                          numericLabels = T,
+                          verbose = 3)                      
+
+cor <- temp_cor     # Return cor function to original namespace
+####################### Take a look at the modules, there ######################################
+
+######## Convert labels to colors for plotting #################################################
+
+mergedColors = labels2colors(netwk$colors)
+# Plot the dendrogram and the module colors underneath
+
+plotDendroAndColors(
+  netwk$dendrograms[[1]],
+  mergedColors[netwk$blockGenes[[1]]],
+  "Module colors",
+  dendroLabels = FALSE,
+  hang = 0.03,
+  addGuide = TRUE,
+  guideHang = 0.05 )
+
+####### Relate Module (cluster) Assignments to Disease Groups ####################################
+##########  pull out the list of modules #########################################################
+
+
+module_df <- data.frame(
+  gene_id = names(netwk$colors),
+  colors = labels2colors(netwk$colors)
+)
+
+module_df[1:5,]
+
+write_delim(module_df,
+            file = "gene_modules1.txt",
+            delim = "\t")
+
+
+# Get Module Eigengenes per cluster
+MEs0 <- moduleEigengenes(input_mat, mergedColors)$eigengenes
+
+# Reorder modules so similar modules are next to each other
+MEs0 <- orderMEs(MEs0)
+module_order = names(MEs0) %>% gsub("ME","", .)
+
+# Add Disease names
+MEs0$cancertype = row.names(MEs0)
+
+# tidy & plot data
+mME = MEs0 %>%
+  pivot_longer(-cancertype) %>%
+  mutate(
+    name = gsub("ME", "", name),
+    name = factor(name, levels = module_order)
+  )
+
+mME %>% ggplot(., aes(x=cancertype, y=name, fill=value)) +
+  geom_tile() +
+  theme_bw() +
+  scale_fill_gradient2(
+    low = "blue",
+    high = "red",
+    mid = "green",
+    midpoint = 0,
+    limit = c(-1,1)) +
+  theme(axis.text.x = element_text(angle=90)) +
+  labs(title = "Module-trait Relationships", y = "Modules", fill="corr")
+
+
+
+
+
+
